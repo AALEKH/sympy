@@ -1055,7 +1055,7 @@ def test_inv_iszerofunc():
 
 
 def test_jacobian_metrics():
-    rho, phi = symbols("rho phi")
+    rho, phi = symbols("rho,phi")
     X = Matrix([rho*cos(phi), rho*sin(phi)])
     Y = Matrix([rho, phi])
     J = X.jacobian(Y)
@@ -1068,7 +1068,7 @@ def test_jacobian_metrics():
 
 
 def test_jacobian2():
-    rho, phi = symbols("rho phi")
+    rho, phi = symbols("rho,phi")
     X = Matrix([rho*cos(phi), rho*sin(phi), rho**2])
     Y = Matrix([rho, phi])
     J = Matrix([
@@ -1633,8 +1633,8 @@ def test_lower_triangular_solve():
     B = Matrix([[x, y], [y, x]])
     C = Matrix([[4, 8], [2, 9]])
 
-    assert A.lower_triangular_solve(B) == Matrix([x, y])
-    assert A.lower_triangular_solve(C) == Matrix([4, 2])
+    assert A.lower_triangular_solve(B) == B
+    assert A.lower_triangular_solve(C) == C
 
 
 def test_upper_triangular_solve():
@@ -1651,12 +1651,15 @@ def test_upper_triangular_solve():
     B = Matrix([[x, y], [y, x]])
     C = Matrix([[2, 4], [3, 8]])
 
-    assert A.upper_triangular_solve(B) == Matrix([x, y])
-    assert A.upper_triangular_solve(C) == Matrix([2, 3])
+    assert A.upper_triangular_solve(B) == B
+    assert A.upper_triangular_solve(C) == C
 
 
 def test_diagonal_solve():
     raises(TypeError, lambda: Matrix([1, 1]).diagonal_solve(Matrix([1])))
+    A = Matrix([[1, 0], [0, 1]])*2
+    B = Matrix([[x, y], [y, x]])
+    assert A.diagonal_solve(B) == B/2
 
 
 def test_matrix_norm():
@@ -2112,3 +2115,8 @@ def test_adjoint():
     ans = Matrix([[0, 1], [-I, 0]])
     for cls in classes:
         assert ans == cls(dat).adjoint()
+
+def test_simplify():
+    from sympy import simplify, sin, cos
+    assert simplify(ImmutableMatrix([[sin(x)**2 + cos(x)**2]])) == \
+                    ImmutableMatrix([[1]])

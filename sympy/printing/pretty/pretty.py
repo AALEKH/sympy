@@ -610,9 +610,20 @@ class PrettyPrinter(Printer):
 
     def _print_Transpose(self, T):
         pform = self._print(T.arg)
-        if (T.arg.is_Add or T.arg.is_Mul or T.arg.is_Pow):
+        if (T.arg.is_MatAdd or T.arg.is_MatMul):
             pform = prettyForm(*pform.parens())
         pform = prettyForm(*pform.right("'"))
+        return pform
+
+    def _print_Adjoint(self, A):
+        pform = self._print(A.arg)
+        if self._use_unicode:
+            dag = prettyForm(u'\u2020')
+        else:
+            dag = prettyForm('+')
+        if (A.arg.is_MatAdd or A.arg.is_MatMul):
+            pform = prettyForm(*pform.parens())
+        pform = pform**prettyForm(u'\u2020')
         return pform
 
     def _print_Inverse(self, I):
@@ -623,22 +634,24 @@ class PrettyPrinter(Printer):
         return pform
 
     def _print_BlockMatrix(self, B):
-        if B.mat.shape == (1, 1):
-            return self._print(B.mat[0, 0])
-        return self._print(B.mat)
+        if B.blocks.shape == (1, 1):
+            return self._print(B.blocks[0, 0])
+        return self._print(B.blocks)
 
     def _print_MatMul(self, expr):
-        a = list(expr.args)
-        for i in xrange(0, len(a)):
-            if a[i].is_Add and len(a) > 1:
-                a[i] = prettyForm(*self._print(a[i]).parens())
+        args = list(expr.args)
+        for i, a in enumerate(args):
+            if (a.is_Add or a.is_Matrix and a.is_MatAdd) and len(expr.args) > 1:
+                args[i] = prettyForm(*self._print(a).parens())
             else:
-                a[i] = self._print(a[i])
+                args[i] = self._print(a)
 
-        return prettyForm.__mul__(*a)
+        return prettyForm.__mul__(*args)
 
     def _print_MatAdd(self, expr):
         return self._print_seq(expr.args, None, None, ' + ')
+
+    _print_MatrixSymbol = _print_Symbol
 
     def _print_FunctionMatrix(self, X):
         D = self._print(X.lamda.expr)
@@ -1041,16 +1054,20 @@ class PrettyPrinter(Printer):
             else:
                 a.append(item)
 
+        from sympy import Integral, Piecewise, Product, Sum
+
         # Convert to pretty forms. Add parens to Add instances if there
         # is more than one term in the numer/denom
         for i in xrange(0, len(a)):
-            if a[i].is_Add and len(a) > 1:
+            if (a[i].is_Add and len(a) > 1) or (i != len(a) - 1 and
+                    isinstance(a[i], (Integral, Piecewise, Product, Sum))):
                 a[i] = prettyForm(*self._print(a[i]).parens())
             else:
                 a[i] = self._print(a[i])
 
         for i in xrange(0, len(b)):
-            if b[i].is_Add and len(b) > 1:
+            if (b[i].is_Add and len(b) > 1) or (i != len(b) - 1 and
+                    isinstance(b[i], (Integral, Piecewise, Product, Sum))):
                 b[i] = prettyForm(*self._print(b[i]).parens())
             else:
                 b[i] = self._print(b[i])

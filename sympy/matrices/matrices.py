@@ -726,6 +726,15 @@ class MatrixBase(object):
         """Solves Ax = B efficiently, where A is a diagonal Matrix,
         with non-zero diagonal entries.
 
+        Examples
+        ========
+
+        >>> from sympy.matrices import Matrix, eye
+        >>> A = eye(2)*2
+        >>> B = Matrix([[1, 2], [3, 4]])
+        >>> A.diagonal_solve(B) == B/2
+        True
+
         See Also
         ========
 
@@ -748,6 +757,15 @@ class MatrixBase(object):
 
         For a non-square matrix with rows > cols,
         the least squares solution is returned.
+
+        Examples
+        ========
+
+        >>> from sympy.matrices import Matrix, eye
+        >>> A = eye(2)*2
+        >>> B = Matrix([[1, 2], [3, 4]])
+        >>> A.LDLsolve(B) == B/2
+        True
 
         See Also
         ========
@@ -1040,6 +1058,7 @@ class MatrixBase(object):
         [x]
         """
         return self.applyfunc(lambda x: x.simplify(ratio, measure))
+    _eval_simplify = simplify
 
     def print_nonzero(self, symb="X"):
         """Shows location of non-zero entries for fast shape lookup.
@@ -1160,7 +1179,7 @@ class MatrixBase(object):
         LUsolve
         """
         if not self.is_square:
-            raise NonSquareMatrixError()
+            raise NonSquareMatrixError("A Matrix must be square to apply LUdecomposition_Simple().")
         n = self.rows
         A = self.as_mutable()
         p = []
@@ -2355,7 +2374,7 @@ class MatrixBase(object):
         """
         from dense import Matrix
         if not self.is_square:
-            raise NonSquareMatrixError()
+            raise NonSquareMatrixError("A Matrix must be square to invert.")
 
         big = Matrix.hstack(self.as_mutable(), Matrix.eye(self.rows))
         red = big.rref(iszerofunc=iszerofunc, simplify=True)[0]
@@ -2375,7 +2394,7 @@ class MatrixBase(object):
         inverse_GE
         """
         if not self.is_square:
-            raise NonSquareMatrixError()
+            raise NonSquareMatrixError("A Matrix must be square to invert.")
 
         d = self.berkowitz_det()
         zero = d.equals(0)

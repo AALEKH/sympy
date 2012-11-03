@@ -1,13 +1,15 @@
 from sympy import (
-    S, symbols, integrate, Integral, Derivative, exp, erf, oo, Symbol,
-    Function, Rational, log, sin, cos, pi, E, I, Poly, LambertW, diff, Matrix,
-    sympify, sqrt, atan, asin, acos, asinh, acosh, DiracDelta, Heaviside,
-    Lambda, sstr, Add, Tuple, Interval, Sum, factor, trigsimp, simplify, O,
-    terms_gcd, EulerGamma, Ci, Piecewise, Abs)
+    Abs, acos, acosh, Add, adjoint, asin, asinh, atan, Ci, conjugate, cos,
+    Derivative, diff, DiracDelta, E, exp, erf, EulerGamma, factor, Function,
+    Heaviside, I, Integral, integrate, Interval, Lambda, LambertW, log,
+    Matrix, O, oo, pi, Piecewise, Poly, Rational, S, simplify, sin, sqrt,
+    sstr, Sum, Symbol, symbols, sympify, terms_gcd, transpose, trigsimp,
+    Tuple,
+)
 from sympy.utilities.pytest import XFAIL, raises
 from sympy.physics.units import m, s
 
-x, y, a, t, x_1, x_2, z = symbols('x,y,a,t,x_1,x_2,z')
+x, y, a, t, x_1, x_2, z = symbols('x y a t x_1 x_2 z')
 n = Symbol('n', integer=True)
 f = Function('f')
 
@@ -95,6 +97,22 @@ def test_basics_multiple():
     assert diff_test(Integral(y*x, x, y)) == set([x, y])
     assert diff_test(Integral(x + y, y, (y, 1, x))) == set([x])
     assert diff_test(Integral(x + y, (x, x, y), (y, y, x))) == set([x, y])
+
+
+def test_conjugate_transpose():
+    A, B = symbols("A B", commutative=False)
+
+    x = Symbol("x", complex=True)
+    p = Integral(A*B, (x,))
+    assert p.adjoint().doit() == p.doit().adjoint()
+    assert p.conjugate().doit() == p.doit().conjugate()
+    assert p.transpose().doit() == p.doit().transpose()
+
+    x = Symbol("x", real=True)
+    p = Integral(A*B, (x,))
+    assert p.adjoint().doit() == p.doit().adjoint()
+    assert p.conjugate().doit() == p.doit().conjugate()
+    assert p.transpose().doit() == p.doit().transpose()
 
 
 def test_integration():
@@ -790,7 +808,7 @@ def test_integrate_series():
 
 def test_atom_bug():
     from sympy import meijerg
-    from sympy.integrals.risch import heurisch
+    from sympy.integrals.heurisch import heurisch
     assert heurisch(meijerg([], [], [1], [], x), x) is None
 
 
@@ -799,8 +817,19 @@ def test_limit_bug():
         -((-log(pi*z) + log(pi**2*z**2)/2 + Ci(pi**2*z))/z) + \
         log(z**2)/(2*z) + EulerGamma/z + 2*log(pi)/z
 
+def test_issue_1604():
+    g = Function('g')
+    assert integrate(exp(x)*g(x), x).has(Integral)
+
+def test_issue_1888():
+    f = Function('f')
+    assert integrate(f(x).diff(x)**2, x).has(Integral)
+
 # The following tests work using meijerint.
 
+def test_issue459():
+    from sympy import Si
+    assert integrate(cos(x*y), (x, -pi/2, pi/2), (y, 0, pi)) == 2*Si(pi**2/2)
 
 def test_issue841():
     from sympy import expand_mul
@@ -811,27 +840,21 @@ def test_issue841():
     assert expand_mul(integrate(exp(-a*x**2 + 2*d*x), (x, -oo, oo))) == \
         sqrt(pi)*exp(d**2/a)/sqrt(a)
 
-
 def test_issue1304():
     assert integrate(1/(x**2 + y**2)**S('3/2'), x) == \
         1/(y**2*sqrt(1 + y**2/x**2))
 
-
-def test_issue459():
-    from sympy import Si
-    assert integrate(cos(x*y), (x, -pi/2, pi/2), (y, 0, pi)) == 2*Si(pi**2/2)
-
+def test_issue_1323():
+    assert integrate(1/sqrt(16 + 4*x**2), x) == asinh(x/2) / 2
 
 def test_issue1394():
     from sympy import simplify
     assert simplify(integrate(x*sqrt(1 + 2*x), x)) == \
         sqrt(2*x + 1)*(6*x**2 + x - 1)/15
 
-
 def test_issue1638():
     assert integrate(sin(x)/x, (x, -oo, oo)) == pi
     assert integrate(sin(x)/x, (x, 0, oo)) == pi/2
-
 
 def test_issue1893():
     from sympy import simplify, expand_func, polygamma, gamma
@@ -861,3 +884,7 @@ def test_issue_3154():
     # Note: this used to raise NotImplementedError
     assert integrate((sqrt(1 - x) + sqrt(1 + x))**2/x, x, meijerg=True) == \
         Integral((sqrt(-x + 1) + sqrt(x + 1))**2/x, x)
+
+def test_issue1054():
+    assert integrate(1/(1+x+y+z), (x, 0, 1), (y, 0, 1), (z, 0, 1)) in \
+        [6*log(2) + 8*log(4) - 27*log(3)/2, 22*log(2) - 27*log(3)/2]
