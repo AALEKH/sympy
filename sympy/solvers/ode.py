@@ -1751,9 +1751,8 @@ def constantsimp(expr, independentsymbol, endnumber, startnumber=1,
         constantsymbols = symbols(
             symbolname + '%i:%i' % (startnumber, endnumber + 1))
         x = independentsymbol
-    #constantsymbols = [ c for c in constantsymbols if expr.count(c) == 1 ]
+    constantsymbols = [ c for c in constantsymbols if expr.count(c) == 1 ]
     con_set = set(constantsymbols)
-
     def _constantsimp(expr, independentsymbol, endnumber, startnumber=1, symbolname='C'):
         ARGS = None, None, None, (
         x, endnumber, startnumber, constantsymbols)
