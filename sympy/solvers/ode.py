@@ -357,6 +357,26 @@ def sub_func_doit(eq, func, new):
     return eq.subs(reps).subs(func, new).subs(repu)
 
 
+def get_new_constants(eq,num=1,start=1,sym='C'):
+    number_of_constants = num
+    try:
+        atom_set = eq.atoms(Symbol)
+    except:
+        # elif isinstance(atom_set,list):
+        atom_set = reduce(lambda x,y:x.__or__(y), atom_set, set() )
+    #else:
+    #    assert False, "could not find atoms of argument"
+    Cs = []
+    for Ci in numbered_symbols(prefix=sym,start=start):
+        if number_of_constants <= len(Cs):
+            break
+        if Ci not in atom_set:
+            Cs.append(Ci)
+    if number_of_constants == 1:
+        return Cs[0]
+    return tuple(Cs)
+
+
 def dsolve(eq, func=None, hint="default", simplify=True,
     ics= None, xi=None, eta=None, x0=0, n=6, **kwargs):
     r"""
@@ -1221,7 +1241,7 @@ def odesimp(eq, func, order, hint):
     """
     x = func.args[0]
     f = func.func
-    C1 = Symbol('C1')
+    C1 = get_new_constants(eq,num=1)
 
     # First, integrate if the hint allows it.
     eq = _handle_Integral(eq, func, order, hint)
@@ -2000,7 +2020,7 @@ def ode_1st_exact(eq, func, order, match):
     d = r[r['d']]
     global y  # This is the only way to pass dummy y to _handle_Integral
     y = r['y']
-    C1 = Symbol('C1')
+    C1 = get_new_constants(eq,num=1)
     # Refer Joel Moses, "Symbolic Integration - The Stormy Decade",
     # Communications of the ACM, Volume 14, Number 8, August 1971, pp. 558
     # which gives the method to solve an exact differential equation.
@@ -2148,7 +2168,7 @@ def ode_1st_homogeneous_coeff_subs_dep_div_indep(eq, func, order, match):
     u = Dummy('u')
     u1 = Dummy('u1')  # u1 == f(x)/x
     r = match  # d+e*diff(f(x),x)
-    C1 = Symbol('C1')
+    C1 = get_new_constants(eq,num=1)
     xarg = match.get('xarg', 0)
     yarg = match.get('yarg', 0)
     int = C.Integral(
@@ -2244,7 +2264,7 @@ def ode_1st_homogeneous_coeff_subs_indep_div_dep(eq, func, order, match):
     u = Dummy('u')
     u2 = Dummy('u2')  # u2 == x/f(x)
     r = match  # d+e*diff(f(x),x)
-    C1 = Symbol('C1')
+    C1 = get_new_constants(eq,num=1)
     xarg = match.get('xarg', 0)  # If xarg present take xarg, else zero
     yarg = match.get('yarg', 0)  # If yarg present take yarg, else zero
     int = C.Integral(
@@ -2404,7 +2424,7 @@ def ode_1st_linear(eq, func, order, match):
     x = func.args[0]
     f = func.func
     r = match  # a*diff(f(x),x) + b*f(x) + c
-    C1 = Symbol('C1')
+    C1 = get_new_constants(eq,num=1)
     t = exp(C.Integral(r[r['b']]/r[r['a']], x))
     tt = C.Integral(t*(-r[r['c']]/r[r['a']]), x)
     f = match.get('u', f(x))  # take almost-linear u if present, else f(x)
@@ -2490,7 +2510,7 @@ def ode_Bernoulli(eq, func, order, match):
     x = func.args[0]
     f = func.func
     r = match  # a*diff(f(x),x) + b*f(x) + c*f(x)**n, n != 1
-    C1 = Symbol('C1')
+    C1 = get_new_constants(eq,num=1)
     t = exp((1 - r[r['n']])*C.Integral(r[r['b']]/r[r['a']], x))
     tt = (r[r['n']] - 1)*C.Integral(t*r[r['c']]/r[r['a']], x)
     return Eq(f(x), ((tt + C1)/t)**(1/(1 - r[r['n']])))
@@ -2540,7 +2560,7 @@ def ode_Riccati_special_minus2(eq, func, order, match):
     f = func.func
     r = match  # a2*diff(f(x),x) + b2*f(x) + c2*f(x)/x + d2/x**2
     a2, b2, c2, d2 = [r[r[s]] for s in 'a2 b2 c2 d2'.split()]
-    C1 = Symbol('C1')
+    C1 = get_new_constants(eq,num=1)
     mu = sqrt(4*d2*b2 - (a2 - c2)**2)
     return Eq(f(x), (a2 - c2 - mu*tan(mu/(2*a2)*log(x) + C1))/(2*b2*x))
 
@@ -2611,8 +2631,7 @@ def ode_Liouville(eq, func, order, match):
     f = func.func
     r = match  # f(x).diff(x, 2) + g*f(x).diff(x)**2 + h*f(x).diff(x)
     y = r['y']
-    C1 = Symbol('C1')
-    C2 = Symbol('C2')
+    C1,C2 = get_new_constants(eq,num=2)
     int = C.Integral(exp(C.Integral(r['g'], y)), (y, None, f(x)))
     sol = Eq(int + C1*C.Integral(exp(-C.Integral(r['h'], x)), x) + C2, 0)
     return sol
@@ -2655,7 +2674,7 @@ def ode_2nd_power_series_ordinary(eq, func, order, match):
     """
     x = func.args[0]
     f = func.func
-    C0, C1 = symbols("C0 C1")
+    C0, C1 = get_new_constants(eq,num=2)
     n = Dummy("n")
     s = Wild("s")
     k = Wild("k", exclude=[x])
@@ -2819,7 +2838,7 @@ def ode_2nd_power_series_regular(eq, func, order, match):
     """
     x = func.args[0]
     f = func.func
-    C0, C1 = symbols("C0 C1")
+    C0, C1 = get_new_constants(eq,num=2)
     n = Dummy("n")
     m = Dummy("m")  # for solving the indicial equation
     s = Wild("s")
@@ -3062,6 +3081,7 @@ def ode_nth_linear_euler_eq_homogeneous(eq, func, order, match, returns='sol'):
 
     # A generator of constants
     constants = numbered_symbols(prefix='C', cls=Symbol, start=1)
+    C0, C1 = get_new_constants(eq,num=2)
 
     # First, set up characteristic equation.
     chareq, symbol = S.Zero, Dummy('x')
@@ -4130,7 +4150,7 @@ def ode_separable(eq, func, order, match):
     """
     x = func.args[0]
     f = func.func
-    C1 = Symbol('C1')
+    C1 = get_new_constants(eq,num=1)
     r = match  # {'m1':m1, 'm2':m2, 'y':y}
     u = r.get('hint', f(x))  # get u from separable_reduced else get f(x)
     return Eq(C.Integral(r['m2']['coeff']*r['m2'][r['y']]/r['m1'][r['y']],
