@@ -1,7 +1,7 @@
 import itertools
 
 from sympy import (Add, Pow, Symbol, exp, sqrt, symbols, sympify, cse,
-    Matrix, S, cos, sin, Eq, Function, Tuple, RootOf)
+    Matrix, S, cos, sin, Eq, Function, Tuple, RootOf, Piecewise)
 from sympy.simplify.cse_opts import sub_pre, sub_post
 from sympy.functions.special.hyper import meijerg
 from sympy.simplify import cse_main, cse_opts
@@ -267,3 +267,12 @@ def test_issue_3070():
     # and a check that the right thing is done with the new
     # mechanism
     assert sub_post(sub_pre((-x - y)*z - x - y)) == -z*(x + y) - x - y
+
+
+def test_Piecewise():
+    f = Piecewise((-z + x*y, Eq(y, 0)), (-z - x*y, True))
+    ans = cse(f)
+    actual_ans = ([(x0, -z), (x1, x*y)], [Piecewise((x0+x1, Eq(y, 0)), (x0 - x1, True))])
+    assert ans == actual_ans
+
+
