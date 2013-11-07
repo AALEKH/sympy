@@ -1816,17 +1816,20 @@ def myconstantsimp(expr,Cs):
         expr = expr.subs(xe,xes[0])
 
     #print "\t--step 1: ", expr
-    commons, rexpr = cse(expr)
-    #print cse(expr)
-    commons.reverse()
-    expr = rexpr[0]
-    for s in commons:
-        #print "\t", s
-        cs = list(s[1].atoms(Symbol))
-        if len(cs) == 1 and cs[0] in Cs:
-            expr = expr.subs(s[0],cs[0])
-        else:
-            expr = expr.subs(*s)
+    try:
+        commons, rexpr = cse(expr)
+        commons.reverse()
+        expr = rexpr[0]
+        #print cse(expr)
+        for s in commons:
+            #print "\t", s
+            cs = list(s[1].atoms(Symbol))
+            if len(cs) == 1 and cs[0] in Cs:
+                expr = expr.subs(s[0],cs[0])
+            else:
+                expr = expr.subs(*s)
+    except:
+        pass
     #print "\t--step 2: ", expr
     if old_expr != expr:
         expr = myconstantsimp(expr, Cs)
