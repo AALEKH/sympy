@@ -120,7 +120,6 @@ def test_constant_function():
     assert constant_renumber(constantsimp(f(C1, y, C2), x, 2), 'C', 1, 2) == C1
 
 
-@XFAIL
 def test_constant_function_multiple():
     # The rules to not renumber in this case would be too complicated, and
     # dsolve is not likely to ever encounter anything remotely like this.

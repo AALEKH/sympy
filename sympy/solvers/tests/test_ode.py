@@ -66,6 +66,7 @@ def test_checkodesol():
     assert not checkodesol(eq3, sol3)[1].has(f(x))
 
 
+@slow
 def test_dsolve_options():
     eq = x*f(x).diff(x) + f(x)
     a = dsolve(eq, hint='all')
@@ -255,7 +256,7 @@ def test_old_ode_tests():
     sol3 = Eq(f(x), C1 + 5*x/3)
     sol4 = Eq(f(x), C1*sin(x/3) + C2*cos(x/3))
     sol5 = Eq(f(x), C1*exp(-x/3) + C2*exp(x/3))
-    sol6 = Eq(f(x), (C1 - cos(x))/x**3)
+    sol6 = Eq(f(x), C1/x**3 - cos(x)/x**3)
     sol7 = Eq(f(x), C1*exp(x) + C2*exp(2*x))
     sol8 = Eq(f(x), (C1 + C2*x)*exp(2*x))
     sol9 = Eq(f(x), (C1*sin(x*sqrt(2)) + C2*cos(x*sqrt(2)))*exp(-x))
@@ -1449,8 +1450,9 @@ def test_exact_enhancement():
     df = Derivative(f, x)
     eq = f/x**2 + ((f*x - 1)/x)*df
     sol = dsolve(eq, f)
-    rhs = [eq.rhs for eq in sol]
-    assert rhs == [(-sqrt(C1*x**2 + 1) + 1)/x, (sqrt(C1*x**2 + 1) + 1)/x]
+    actual_sol = [ Eq(f,(-sqrt(C1*x**2 + 1) + 1)/x), Eq(f,(sqrt(C1*x**2 + 1) + 1)/x)]
+    errstr = str(eq)+' : '+str(sol)+' == '+str(actual_sol)
+    assert sol == actual_sol, errstr
 
     eq = (x*f - 1) + df*(x**2 - x*f)
     rhs = [sol.rhs for sol in dsolve(eq, f)]
@@ -1578,10 +1580,13 @@ def test_issue_3890():
             (x**2/2, Eq(k**3, 0)),
             ((-k**2*x - k)*exp(-k*x)/k**3, True)
         ))
-    assert dsolve(-f(x).diff(x) + x*exp(-k*x), f(x)) == \
-        Eq(f(x), Piecewise((C1 + x**2/2, Eq(k**3, 0)),
+    eq = -f(x).diff(x) + x*exp(-k*x)
+    sol = dsolve(eq, f(x))
+    actual_sol = Eq(f(x), Piecewise((C1 + x**2/2, Eq(k**3, 0)),
             (C1 - x*exp(-k*x)/k - exp(-k*x)/k**2, True)
         ))
+    errstr = str(eq)+' : '+str(sol)+' == '+str(actual_sol)
+    assert sol == actual_sol, errstr
 
 
 def test_heuristic1():
@@ -1769,7 +1774,9 @@ def test_lie_group():
 
     eq = f(x).diff(x) + 2*x*f(x) - x*exp(-x**2)
     sol = dsolve(eq, f(x), hint='lie_group')
-    assert sol == Eq(f(x), (C1 + x**2/S(2))*exp(-x**2))
+    actual_sol = Eq(f(x), (C1 + x**2/S(2))*exp(-x**2))
+    errstr = str(eq)+' : '+str(sol)+' == '+str(actual_sol)
+    assert sol == actual_sol, errstr
     assert checkodesol(eq, sol)[0]
 
     eq = (1 + 2*x)*(f(x).diff(x)) + 2 - 4*exp(-f(x))
@@ -1792,7 +1799,9 @@ def test_user_infinitesimals():
     eq = x*(f(x).diff(x)) + 1 - f(x)**2
     sol = dsolve(eq, hint='lie_group', xi=sqrt(f(x) - 1)/sqrt(f(x) + 1),
         eta=0)
-    assert sol == Eq(f(x), (C1 + x**2)/(C1 - x**2))
+    actual_sol = Eq(f(x), (C1 + x**2)/(C1 - x**2))
+    errstr = str(eq)+' : '+str(sol)+' == '+str(actual_sol)
+    assert sol == actual_sol, errstr
     raises(ValueError, lambda: dsolve(eq, hint='lie_group', xi=0, eta=f(x)))
 
 @XFAIL
