@@ -1786,6 +1786,8 @@ def get_constant_subexpressions(expr,Cs):
             Ces.append(expr)
         else:
             #if isinstance(expr.func, AssocOp):
+            if expr.func == exp:
+                expr = expr.expand(mul=True)
             if expr.func in (Add, Mul):
                 d = sift(expr.args, lambda i : i.atoms(Symbol).issubset(Cs))
                 if True in d and len(d[True])>1:
@@ -1800,6 +1802,7 @@ def get_constant_subexpressions(expr,Cs):
 
 @vectorize(0)
 def myconstantsimp(expr,Cs):
+    old_expr = expr
     #print "======================"
     #print "\t--step 0: ", expr
     Ces = get_constant_subexpressions(expr,Cs)
@@ -1825,6 +1828,8 @@ def myconstantsimp(expr,Cs):
         else:
             expr = expr.subs(*s)
     #print "\t--step 2: ", expr
+    if old_expr != expr:
+        expr = myconstantsimp(expr, Cs)
     return expr
 
 
