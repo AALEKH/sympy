@@ -1800,6 +1800,35 @@ def get_constant_subexpressions(expr,Cs):
     _recursive_walk(expr)
     return Ces
 
+def remove_linear_redundancies(expr,Cs):
+    cnts = dict([(i,expr.count(i)) for i in Cs])
+    Cs = [ i for i in Cs if cnts[i] > 0 ]
+
+    def _linear(expr):
+        if expr.func is not Add:
+            return expr
+        xs = [ i for i in Cs if expr.count(i)==cnts[i] \
+            and 0 == expr.diff(i,i) ]
+        d = {}
+        for x in xs:
+            y = expr.diff(x)
+            if y not in d:
+                d[y]=[]
+            d[y].append(x)
+        for y in d:
+            if len(d[y]) > 1:
+                d[y].sort(key=str)
+                for x in d[y][1:]:
+                    expr = expr.subs(x,0)
+        return expr
+
+    def _recursive_walk(expr):
+        if len(expr.args) != 0:
+            expr = expr.func(*[_recursive_walk(i) for i in expr.args])
+        expr = _linear(expr)
+        return expr
+    return _recursive_walk(expr)
+
 @vectorize(0)
 def myconstantsimp(expr,Cs):
     old_expr = expr
@@ -1831,6 +1860,9 @@ def myconstantsimp(expr,Cs):
     except:
         pass
     #print "\t--step 2: ", expr
+    expr = remove_linear_redundancies(expr, Cs)
+    #print "\t--step 3: ", expr
+    # call recursively is more simplification is possible
     if old_expr != expr:
         expr = myconstantsimp(expr, Cs)
     return expr
