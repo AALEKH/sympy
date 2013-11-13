@@ -1334,15 +1334,15 @@ def test_issue_2671():
     w = Function('w')
     sol = dsolve(w(t).diff(t, 6) - k**6*w(t), w(t))
     assert len([s for s in sol.atoms(Symbol) if s.name.startswith('C')]) == 6
-    assert constantsimp((C1*cos(x) + C2*cos(x))*exp(x), x, 2) == \
+    assert constantsimp((C1*cos(x) + C2*cos(x))*exp(x), set([C1,C2])) == \
         C1*cos(x)*exp(x)
-    assert constantsimp(C1*cos(x) + C2*cos(x) + C3*sin(x), x, 2) == \
+    assert constantsimp(C1*cos(x) + C2*cos(x) + C3*sin(x), set([C1,C2,C3])) == \
         C1*cos(x) + C3*sin(x)
-    assert constantsimp(exp(C1 + x), x, 1) == C1*exp(x)
+    assert constantsimp(exp(C1 + x), set([C1])) == C1*exp(x)
     #assert constantsimp(2**(C1 + x), x, 1) == C1*2**x
     #assert constantsimp(2**(C1 + x), x, 1) == C1*2**x
-    assert constantsimp(x + C1 + y, x, 1) == C1 + x
-    assert constantsimp(x + C1 + Integral(x, (x, 1, 2)), x, 1) == C1 + x
+    assert constantsimp(x + C1 + y, set([C1])) == C1 + x
+    assert constantsimp(x + C1 + Integral(x, (x, 1, 2)), set([C1])) == C1 + x
 
 
 def test_issue_2013_2331():

@@ -598,7 +598,9 @@ def _helper_simplify(eq, hint, match, simplify=True, **kwargs):
         # odesimp() will attempt to integrate, if necessary, apply constantsimp(),
         # attempt to solve for func, and apply any other hint specific
         # simplifications
-        rv = odesimp(solvefunc(eq, func, order, match), func, order, hint)
+        sols = solvefunc(eq, func, order, match)
+        constants = sols.atoms(Symbol).difference(eq.atoms(Symbol))
+        rv = odesimp(sols, func, order, constants, hint)
         return rv
     else:
         # We still want to integrate (you can disable it separately with the hint)
@@ -1182,7 +1184,7 @@ def classify_ode(eq, func=None, dict=False, ics=None, **kwargs):
         return tuple(retlist)
 
 @vectorize(0)
-def odesimp(eq, func, order, hint):
+def odesimp(eq, func, order, constants, hint):
     r"""
     Simplifies ODEs, including trying to solve for ``func`` and running
     :py:meth:`~sympy.solvers.ode.constantsimp`.
@@ -1229,7 +1231,7 @@ def odesimp(eq, func, order, hint):
                             |
                            /
 
-    >>> pprint(odesimp(eq, f(x), 1,
+    >>> pprint(odesimp(eq, f(x), 1, set([C1]),
     ... hint='1st_homogeneous_coeff_subs_indep_div_dep'
     ... )) #doctest: +SKIP
         x
@@ -1252,7 +1254,7 @@ def odesimp(eq, func, order, hint):
     # expression.  If that number grows with another hint, the third argument
     # here should be raised accordingly, or constantsimp() rewritten to handle
     # an arbitrary number of constants.
-    eq = constantsimp(eq, x, 2*order)
+    eq = constantsimp(eq, constants)
 
     # Lastly, now that we have cleaned up the expression, try solving for func.
     # When RootOf is implemented in solve(), we will want to return a RootOf
@@ -1319,8 +1321,8 @@ def odesimp(eq, func, order, hint):
     # a simpler expression, but the solved expression could have introduced
     # things like -C1, so rerun constantsimp() one last time before returning.
     for i, eqi in enumerate(eq):
-        eqi = constantsimp(eqi, x, 2*order)
-        eq[i] = constant_renumber(eqi, 'C', 1, 2*order)
+        eq[i] = constantsimp(eqi, constants)
+        #eq[i] = constant_renumber(eqi, 'C', 1, 2*order)
 
     # If there is only 1 solution, return it;
     # otherwise return the list of solutions.
@@ -1693,9 +1695,68 @@ def ode_sol_simplicity(sol, func, trysolving=True):
     return len(str(sol))
 
 
+def __get_constant_subexpressions(expr,Cs):
+    Cs = set(Cs)
+    Ces = []
+    def sift(x,f):
+        d = {}
+        for i in x:
+            j = f(i);
+            if j not in d:
+                d[j] = list()
+            d[j].append(i)
+        return d
+    def _recursive_walk(expr):
+        S = expr.atoms(Symbol)
+        if len(S) > 0 and S.issubset(Cs):
+            Ces.append(expr)
+        else:
+            #if isinstance(expr.func, AssocOp):
+            if expr.func == exp:
+                expr = expr.expand(mul=True)
+            if expr.func in (Add, Mul):
+                d = sift(expr.args, lambda i : i.atoms(Symbol).issubset(Cs))
+                if True in d and len(d[True])>1:
+                    x = expr.func(*d[True])
+                    if 0 < len(x.atoms(Symbol)):
+                        Ces.append(x)
+            for i in expr.args:
+                _recursive_walk(i)
+        return
+    _recursive_walk(expr)
+    return Ces
+
+def __remove_linear_redundancies(expr,Cs):
+    cnts = dict([(i,expr.count(i)) for i in Cs])
+    Cs = [ i for i in Cs if cnts[i] > 0 ]
+
+    def _linear(expr):
+        if expr.func is not Add:
+            return expr
+        xs = [ i for i in Cs if expr.count(i)==cnts[i] \
+            and 0 == expr.diff(i,i) ]
+        d = {}
+        for x in xs:
+            y = expr.diff(x)
+            if y not in d:
+                d[y]=[]
+            d[y].append(x)
+        for y in d:
+            if len(d[y]) > 1:
+                d[y].sort(key=str)
+                for x in d[y][1:]:
+                    expr = expr.subs(x,0)
+        return expr
+
+    def _recursive_walk(expr):
+        if len(expr.args) != 0:
+            expr = expr.func(*[_recursive_walk(i) for i in expr.args])
+        expr = _linear(expr)
+        return expr
+    return _recursive_walk(expr)
+
 @vectorize(0)
-def constantsimp(expr, independentsymbol, endnumber, startnumber=1,
-                 symbolname='C'):
+def constantsimp(expr, constants):
     r"""
     Simplifies an expression with arbitrary constants in it.
 
@@ -1751,11 +1812,11 @@ def constantsimp(expr, independentsymbol, endnumber, startnumber=1,
     >>> from sympy import symbols
     >>> from sympy.solvers.ode import constantsimp
     >>> C1, C2, C3, x, y = symbols('C1,C2,C3,x,y')
-    >>> constantsimp(2*C1*x, x, 3)
+    >>> constantsimp(2*C1*x, set([C1,C2,C3]))
     C1*x
-    >>> constantsimp(C1 + 2 + x + y, x, 3)
+    >>> constantsimp(C1 + 2 + x + y, set([C1,C2,C3]))
     C1 + x
-    >>> constantsimp(C1*C2 + 2 + x + y + C3*x, x, 3)
+    >>> constantsimp(C1*C2 + 2 + x + y + C3*x, set([C1,C2,C3]))
     C1 + C3*x
 
     """
@@ -1765,76 +1826,12 @@ def constantsimp(expr, independentsymbol, endnumber, startnumber=1,
     # simplifying up.  Otherwise, we can skip that part of the
     # expression.
 
-    constantsymbols = symbols(
-        symbolname + '%i:%i' % (startnumber, endnumber + 1))
-    return myconstantsimp(expr,constantsymbols)
+    Cs = constants
 
-def get_constant_subexpressions(expr,Cs):
-    Cs = set(Cs)
-    Ces = []
-    def sift(x,f):
-        d = {}
-        for i in x:
-            j = f(i);
-            if j not in d:
-                d[j] = list()
-            d[j].append(i)
-        return d
-    def _recursive_walk(expr):
-        S = expr.atoms(Symbol)
-        if len(S) > 0 and S.issubset(Cs):
-            Ces.append(expr)
-        else:
-            #if isinstance(expr.func, AssocOp):
-            if expr.func == exp:
-                expr = expr.expand(mul=True)
-            if expr.func in (Add, Mul):
-                d = sift(expr.args, lambda i : i.atoms(Symbol).issubset(Cs))
-                if True in d and len(d[True])>1:
-                    x = expr.func(*d[True])
-                    if 0 < len(x.atoms(Symbol)):
-                        Ces.append(x)
-            for i in expr.args:
-                _recursive_walk(i)
-        return
-    _recursive_walk(expr)
-    return Ces
-
-def remove_linear_redundancies(expr,Cs):
-    cnts = dict([(i,expr.count(i)) for i in Cs])
-    Cs = [ i for i in Cs if cnts[i] > 0 ]
-
-    def _linear(expr):
-        if expr.func is not Add:
-            return expr
-        xs = [ i for i in Cs if expr.count(i)==cnts[i] \
-            and 0 == expr.diff(i,i) ]
-        d = {}
-        for x in xs:
-            y = expr.diff(x)
-            if y not in d:
-                d[y]=[]
-            d[y].append(x)
-        for y in d:
-            if len(d[y]) > 1:
-                d[y].sort(key=str)
-                for x in d[y][1:]:
-                    expr = expr.subs(x,0)
-        return expr
-
-    def _recursive_walk(expr):
-        if len(expr.args) != 0:
-            expr = expr.func(*[_recursive_walk(i) for i in expr.args])
-        expr = _linear(expr)
-        return expr
-    return _recursive_walk(expr)
-
-@vectorize(0)
-def myconstantsimp(expr,Cs):
     old_expr = expr
     #print "======================"
     #print "\t--step 0: ", expr
-    Ces = get_constant_subexpressions(expr,Cs)
+    Ces = __get_constant_subexpressions(expr,Cs)
     #print "\t\tCes: ", Ces
     for xe in Ces:
         xes = list(xe.atoms(Symbol))
@@ -1860,11 +1857,11 @@ def myconstantsimp(expr,Cs):
     except:
         pass
     #print "\t--step 2: ", expr
-    expr = remove_linear_redundancies(expr, Cs)
+    expr = __remove_linear_redundancies(expr, Cs)
     #print "\t--step 3: ", expr
     # call recursively is more simplification is possible
     if old_expr != expr:
-        expr = myconstantsimp(expr, Cs)
+        expr = constantsimp(expr, Cs)
     return expr
 
 
@@ -2118,10 +2115,14 @@ def ode_1st_homogeneous_coeff_best(eq, func, order, match):
     func, order, match)
     simplify = match.get('simplify', True)
     if simplify:
+        constants = sol1.atoms(Symbol).difference(eq.atoms(Symbol))
         sol1 = odesimp(
-            sol1, func, order, "1st_homogeneous_coeff_subs_indep_div_dep")
+            sol1, func, order, constants,
+            "1st_homogeneous_coeff_subs_indep_div_dep")
+        constants = sol2.atoms(Symbol).difference(eq.atoms(Symbol))
         sol2 = odesimp(
-            sol2, func, order, "1st_homogeneous_coeff_subs_dep_div_indep")
+            sol2, func, order, constants,
+            "1st_homogeneous_coeff_subs_dep_div_indep")
     return min([sol1, sol2], key=lambda x: ode_sol_simplicity(x, func,
         trysolving=not simplify))
 
