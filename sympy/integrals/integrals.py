@@ -446,6 +446,7 @@ class Integral(AddWithLimits):
         sympy.integrals.rationaltools.ratint
         as_sum : Approximate the integral using a sum
         """
+        print("check 1,\t%s"%str(self))
         if not hints.get('integrals', True):
             return self
 
@@ -539,6 +540,7 @@ class Integral(AddWithLimits):
                 else:
                     meijerg1 = False
 
+            print("check 2")
             # If the special meijerg code did not succeed finding a definite
             # integral, then the code using meijerint_indefinite will not either
             # (it might find an antiderivative, but the answer is likely to be
@@ -559,7 +561,12 @@ class Integral(AddWithLimits):
                         function = ret
                         continue
 
-            if antideriv is None:
+            print("check 4, %s"%str(antideriv),type(antideriv),isinstance(antideriv,Integral))
+            # sympy.integrals.risch.NonElementaryIntegral
+
+            if antideriv is None \
+                or not (antideriv is Integral):
+                #or antideriv is sympy.integrals.risch.NonElementaryIntegral:
                 undone_limits.append(xab)
             else:
                 if len(xab) == 1:
@@ -587,13 +594,17 @@ class Integral(AddWithLimits):
                         function = Poly(function, *gens)
                     else:
                         try:
+                            print("check 6\n",x,a,b,str(antideriv))
                             function = antideriv._eval_interval(x, a, b)
+                            print(function)
                         except NotImplementedError:
                             # This can happen if _eval_interval depends in a
                             # complicated way on limits that cannot be computed
                             undone_limits.append(xab)
+            print("check 3")
 
         if undone_limits:
+            print("check 5", undone_limits)
             return self.func(*([function] + undone_limits))
         return function
 
@@ -964,7 +975,7 @@ class Integral(AddWithLimits):
             # a product that could have been expanded,
             # so let's try an expansion of the whole
             # thing before giving up; we don't try this
-            # out the outset because there are things
+            # at the outset because there are things
             # that cannot be solved unless they are
             # NOT expanded e.g., x**x*(1+log(x)). There
             # should probably be a checker somewhere in this
