@@ -456,8 +456,9 @@ def test_laplace_transform():
 
     # basic tests from wikipedia
 
-    assert LT((t - a)**b*exp(-c*(t - a))*Heaviside(t - a), t, s) == \
-        ((s + c)**(-b - 1)*exp(-a*s)*gamma(b + 1), -c, True)
+    assert LT((t - a)**b*exp(-c*(t - a))*Heaviside(t - a), t, s) in ( \
+        ((s + c)**(-b - 1)*exp(-a*s)*gamma(b + 1), 0, True),
+        ((s + c)**(-b - 1)*exp(-a*s)*gamma(b + 1),-c, True), )
     assert LT(t**a, t, s) == (s**(-a - 1)*gamma(a + 1), 0, True)
     assert LT(Heaviside(t), t, s) == (1/s, 0, True)
     assert LT(Heaviside(t - a), t, s) == (exp(-a*s)/s, 0, True)
@@ -549,6 +550,14 @@ def test_inverse_laplace_transform():
 
     assert ILT(1/(s**2*(s**2 + 1)),s,t) == (t - sin(t))*Heaviside(t)
 
+def test_issue3212():
+    # https://code.google.com/p/sympy/issues/detail?id=3212
+    LT = LaplaceTransform
+    s, t = symbols('s,t', real=True)
+    assert LT(Heaviside(t-1)*cos(t-1), t, s).doit() == \
+        (s*exp(-s)/(s**2 + 1), 0, True)
+    assert LT(Heaviside(t+1)*cos(t+1), t, s).doit() == \
+        ((s*cos(1) - sin(1))/(s**2 + 1), 0, True)
 
 def test_fourier_transform():
     from sympy import simplify, expand, expand_complex, factor, expand_trig
